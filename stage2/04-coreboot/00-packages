@@ -1,0 +1,14 @@
+bison
+flex
+git
+libftdi1
+libftdi-dev
+libncurses5-dev
+libusb-dev
+libpci-dev
+m4
+pciutils
+python-software-properties
+software-properties-common
+usbutils
+zlib1g-dev
