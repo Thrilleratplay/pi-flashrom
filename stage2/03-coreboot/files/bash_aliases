@@ -1,0 +1,1 @@
+function flashrom-read() { sudo /usr/local/sbin/flashrom -p linux_spi:dev=/dev/spidev0.0 "$@" ;}

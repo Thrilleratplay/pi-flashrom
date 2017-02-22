@@ -5,6 +5,7 @@ libftdi1
 libftdi-dev
 libncurses5-dev
 libusb-dev
+libusb-1.0-0-dev
 libpci-dev
 m4
 pciutils
