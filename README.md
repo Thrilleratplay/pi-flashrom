@@ -1,10 +1,16 @@
-# pi-gen
-_Tool used to create the raspberrypi.org Raspbian images_
+# pi-flashrom
+Tool used to create a Raspbian-lite image ready to be used with [Flashrom](https://www.flashrom.org/Flashrom) and [Coreboot](https://www.coreboot.org/)
 
-### TODO
-1. Documentation
+### What is different?
+* No stage 3 or stage 4.  Raspbian lite only.
+* SSH server enabled by default
+* Linux SPI enabled by default
+* Flashrom and dependencies for building Coreboot preinstalled
+* `config` added
+* Simplified Wifi configuration (see below)
+* Command alias (see below)
 
-## Dependencies
+## Build.sh Dependencies
 
 `quilt parted realpath qemu-user-static debootstrap zerofree pxz zip dosfstools bsdtar libcap2-bin grep rsync`
 
@@ -16,11 +22,9 @@ environment variables.
 
 The following environment variables are supported:
 
- * `IMG_NAME` **required** (Default: unset)
+ * `IMG_NAME` **required** (Default: 'Raspbian-flashrom')
 
-   The name of the image to build with the current stage directories.  Setting
-   `IMG_NAME=Raspbian` is logical for an unmodified RPi-Distro/pi-gen build,
-   but you should use something else for a customized version.  Export files
+   The name of the image to build with the current stage directories.  Export files
    in stages may add suffixes to `IMG_NAME`.
 
  * `APT_PROXY` (Default: unset)
@@ -29,16 +33,9 @@ The following environment variables are supported:
    will not be included in the image, making it safe to use an `apt-cacher` or
    similar package for development.
 
-A simple example for building Raspbian:
-
-```bash
-IMG_NAME='Raspbian'
-```
-
 ## Docker Build
 
 ```bash
-vi config         # Edit your config file. See above.
 ./build-docker.sh
 ```
 If everything goes well, your finished image will be in the `deploy/` folder.
@@ -53,64 +50,38 @@ CONTINUE=1 ./build-docker.sh
 
 There is a possibility that even when running from a docker container, the installation of `qemu-user-static` will silently fail when building the image because `binfmt-support` _must be enabled on the underlying kernel_. An easy fix is to ensure `binfmt-support` is installed on the host machine before starting the `./build-docker.sh` script (or using your own docker build solution).
 
-## Stage Anatomy
-
 ### Raspbian Stage Overview
+Refer to [RPi-Distro/pi-gen]( https://github.com/RPi-Distro/pi-gen)
 
-The build of Raspbian is divided up into several stages for logical clarity
-and modularity.  This causes some initial complexity, but it simplifies
-maintenance and allows for more easy customization.
+### Connecting the flash chip
+[ Flashrom RaspberryPi](https://www.flashrom.org/RaspberryPi#Connecting_the_flash_chip)
 
- - **Stage 0** - bootstrap.  The primary purpose of this stage is to create a
-   usable filesystem.  This is accomplished largely through the use of
-   `debootstrap`, which creates a minimal filesystem suitable for use as a
-   base.tgz on Debian systems.  This stage also configures apt settings and
-   installs `raspberrypi-bootloader` which is missed by debootstrap.  The
-   minimal core is installed but not configured, and the system will not quite
-   boot yet.
-
- - **Stage 1** - truly minimal system.  This stage makes the system bootable by
-   installing system files like `/etc/fstab`, configures the bootloader, makes
-   the network operable, and installs packages like raspi-config.  At this
-   stage the system should boot to a local console from which you have the
-   means to perform basic tasks needed to configure and install the system.
-   This is as minimal as a system can possibly get, and its arguably not
-   really usable yet in a traditional sense yet.  Still, if you want minimal,
-   this is minimal and the rest you could reasonably do yourself as sysadmin.
-
- - **Stage 2** - lite system.  This stage produces the Raspbian-Lite image.  It
-   installs some optimized memory functions, sets timezone and charmap
-   defaults, installs fake-hwclock and ntp, wifi and bluetooth support,
-   dphys-swapfile, and other basics for managing the hardware.  It also
-   creates necessary groups and gives the pi user access to sudo and the
-   standard console hardware permission groups.
-
-   There are a few tools that may not make a whole lot of sense here for
-   development purposes on a minimal system such as basic python and lua
-   packages as well as the `build-essential` package.  They are lumped right
-   in with more essential packages presently, though they need not be with
-   pi-gen.  These are understandable for Raspbian's target audience, but if
-   you were looking for something between truly minimal and Raspbian-lite,
-   here's where you start trimming.
-
- - **Stage 3** - desktop system.  Here's where you get the full desktop system
-   with X11 and LXDE, web browsers, git for development, Raspbian custom UI
-   enhancements, etc.  This is a base desktop system, with some development
-   tools installed.
-
- - **Stage 4** - complete Raspbian system.  More development tools, an email
-   client, learning tools like Scratch, specialized packages like sonic-pi and
-   wolfram-engine, system documentation, office productivity, etc.  This is
-   the stage that installs all of the things that make Raspbian friendly to
-   new users.
-
-### Stage specification
-If you wish to build up to a specified stage (such as building up to stage 2 for a lite system), place an empty file named `SKIP` in each of the `./stage` directories you wish not to include.
-
-Then remove the `EXPORT*` files from `./stage4` (if building up to stage 2) or from `./stage2` (if building a minimal system).
-
+### Enable wifi
+**Step 1** - Uncomment the following lines in `/etc/network/interfaces`
+```bash
+#auto wlan0
+#allow-hotplug wlan0
+#iface wlan0 inet manual
+#    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
 ```
-# Example for building a lite system
-$ touch ./stage3/SKIP ./stage4/SKIP
-$ rm stage4/EXPORT*
+
+**Step 2** - Uncomment and modify the following lines in `/etc/wpa_supplicant/wpa_supplicant.conf`
+```bash
+#network={
+#    ssid="Your_ESSID"
+#    psk="Your_wifi_password"
+#}
 ```
+
+**NOTE**: If modifying before building the image, the files are located `stage1/02-net-tweaks/files/interfaces` and `stage2/02-net-tweaks/files/wpa_supplicant.conf` respectively.
+
+### Aliases
+`~/.bash_aliases`
+* `flashrom-read`  
+ * alias of:  
+ ```
+ sudo /usr/local/sbin/flashrom -p linux_spi:dev=/dev/spidev0.0
+ ```
+ * append additional arguments as needed
+
+**NOTE**: If modifying before building the image, the file is located `stage2/03-flashrom/files/bash_aliases`.

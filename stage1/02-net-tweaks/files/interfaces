@@ -3,6 +3,12 @@ auto lo
 iface lo inet loopback
 iface eth0 inet dhcp
 
+
+
+#######################################################
+## Part 1/2 : Uncomment below to enable wifi
+#######################################################
+
 #auto wlan0
 #allow-hotplug wlan0
 #iface wlan0 inet manual
